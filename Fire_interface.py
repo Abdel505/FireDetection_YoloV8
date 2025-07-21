@@ -21,7 +21,7 @@ class FireDetectionApp:
         self.root.title("Fire Detection with YOLOv8")
         self.root.geometry("850x650")
         self.root.configure(bg=BG_COLOR)
-        self.model = YOLO("fire_8n.pt")
+        self.model = YOLO("fire_8l.pt")
         self.image_path = None
 
         # Title label
@@ -33,6 +33,7 @@ class FireDetectionApp:
         img_frame.pack(pady=10)
         self.img_label = tk.Label(img_frame, bg=BG_COLOR)
         self.img_label.pack(padx=10, pady=10)
+        self.display_size = (700, 500)
 
         # Result label
         self.result_label = tk.Label(self.root, text="", font=LABEL_FONT, bg=BG_COLOR, fg=FG_COLOR)
@@ -62,7 +63,7 @@ class FireDetectionApp:
         if file_path:
             self.image_path = file_path
             img = Image.open(file_path)
-            img.thumbnail((500, 400))
+            img.thumbnail(self.display_size)
             self.tk_img = ImageTk.PhotoImage(img)
             self.img_label.config(image=self.tk_img)
             self.result_label.config(text="")
@@ -87,7 +88,7 @@ class FireDetectionApp:
                         cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (238, 187, 195), 2)
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_pil = Image.fromarray(img_rgb)
-            img_pil.thumbnail((500, 400))
+            img_pil.thumbnail(self.display_size)
             self.tk_img = ImageTk.PhotoImage(img_pil)
             self.img_label.config(image=self.tk_img)
             if fire_detected:
