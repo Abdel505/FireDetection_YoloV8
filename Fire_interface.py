@@ -21,7 +21,7 @@ class FireDetectionApp:
         self.root.title("Fire Detection with YOLOv8")
         self.root.geometry("850x650")
         self.root.configure(bg=BG_COLOR)
-        self.model = YOLO("fire_8l.pt")
+        self.model = YOLO("fire_8n30.pt")
         self.image_path = None
 
         # Title label
