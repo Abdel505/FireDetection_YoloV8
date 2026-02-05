@@ -1,11 +1,10 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from PIL import Image, ImageTk
-from ultralytics import YOLO
-import cv2
 import os
-import numpy as np
 import sys
+import time
+from fire_detection_logic import FireVideoProcessor
 
 # Modern color scheme
 BG_COLOR = "#232946"
@@ -23,9 +22,23 @@ class FireDetectionApp:
         self.root.title("Fire Detection with YOLOv8")
         self.root.geometry("850x430")
         self.root.configure(bg=BG_COLOR)
-        self.model = YOLO("fire_8l.pt")
-        self.image_path = None
+        
+        # Initialize the logic processor
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_name = "fire_8n.pt"
+        model_path = os.path.join(base_dir, "models", model_name)
 
+        # Check if model exists in src/models, if not check root/models
+        if not os.path.exists(model_path):
+            possible_path = os.path.join(base_dir, "..", "models", model_name)
+            if os.path.exists(possible_path):
+                model_path = possible_path
+
+        self.processor = FireVideoProcessor(model_path)
+        self.video_path = None
+        self.is_running = False
+        self.after_id = None
+        
         # Title label
         title = tk.Label(self.root, text="🔥 Fire Detection with YOLOv8 🔥", font=("Segoe UI", 22, "bold"), bg=BG_COLOR, fg=FG_COLOR)
         title.pack(pady=(20, 10))
@@ -46,12 +59,10 @@ class FireDetectionApp:
         # Button frame
         btn_frame = tk.Frame(self.root, bg=BG_COLOR)
         btn_frame.pack(pady=2)
-        self.load_btn = tk.Button(btn_frame, text="Load Image", command=self.load_image, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
+        self.load_btn = tk.Button(btn_frame, text="Load Video", command=self.load_video, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
         self.load_btn.grid(row=0, column=0, padx=10)
-        self.predict_btn = tk.Button(btn_frame, text="Predict", command=self.predict, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
-        self.predict_btn.grid(row=0, column=1, padx=10)
         self.reset_btn = tk.Button(btn_frame, text="Reset", command=self.reset, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
-        self.reset_btn.grid(row=0, column=2, padx=10)
+        self.reset_btn.grid(row=0, column=1, padx=10)
 
         # Confidence threshold slider
         slider_frame = tk.Frame(self.root, bg=BG_COLOR)
@@ -81,49 +92,70 @@ class FireDetectionApp:
     def resize_to_fixed_size(self, img_pil):
         return img_pil.resize(self.display_size, Image.LANCZOS)
 
-    def load_image(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.bmp")])
+    def load_video(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Video Files", "*.mp4;*.avi;*.mov;*.mkv")])
         if file_path:
-            self.image_path = file_path
-            img = Image.open(file_path)
-            img_fixed = self.resize_to_fixed_size(img)
-            self.tk_img = ImageTk.PhotoImage(img_fixed)
-            self.img_label.config(image=self.tk_img)
-            self.result_label.config(text="")
+            self.video_path = file_path
+            if self.processor.load_video(file_path):
+                # Get a preview frame
+                frame_rgb, success = self.processor.get_first_frame()
+                if success:
+                    img_pil = Image.fromarray(frame_rgb)
+                    img_fixed = self.resize_to_fixed_size(img_pil)
+                    self.tk_img = ImageTk.PhotoImage(img_fixed)
+                    self.img_label.config(image=self.tk_img)
+                self.result_label.config(text="Video Loaded")
+                
+                if not self.is_running:
+                    self.predict()
+            else:
+                messagebox.showerror("Error", "Failed to load video.")
 
     def predict(self):
-        if not self.image_path:
-            messagebox.showwarning("No Image", "Please load an image first.")
+        if not self.video_path:
+            messagebox.showwarning("No Video", "Please load a video first.")
             return
-        try:
-            conf_thresh = self.confidence_var.get()
-            results = self.model(self.image_path, conf=conf_thresh)
-            # Use imdecode to handle paths with special characters (e.g., "Università")
-            img = cv2.imdecode(np.fromfile(self.image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
-            fire_detected = False
-            for r in results:
-                boxes = r.boxes
-                for box in boxes:
-                    if float(box.conf[0]) >= conf_thresh:
-                        fire_detected = True
-                        x1, y1, x2, y2 = map(int, box.xyxy[0])
-                        cv2.rectangle(img, (x1, y1), (x2, y2), (238, 187, 195), 3)
-                        label = f"{self.model.names[int(box.cls[0])]}: {box.conf[0]:.2f}"
-                        cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (238, 187, 195), 2)
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img_pil = Image.fromarray(img_rgb)
+        self.is_running = True
+        self.process_frame()
+
+    def process_frame(self):
+        start_time = time.time()
+        if not self.is_running:
+            return
+        
+        conf_thresh = self.confidence_var.get()
+        frame_rgb, fire_detected, status = self.processor.process_next_frame(conf_thresh)
+        
+        if status == "finished":
+            self.is_running = False
+            self.result_label.config(text="Video Finished")
+            return
+        elif status == "error":
+            self.is_running = False
+            return
+            
+        # Update Image
+        if frame_rgb is not None:
+            img_pil = Image.fromarray(frame_rgb)
             img_fixed = self.resize_to_fixed_size(img_pil)
             self.tk_img = ImageTk.PhotoImage(img_fixed)
             self.img_label.config(image=self.tk_img)
-            if fire_detected:
-                self.result_label.config(text="🔥 FIRE DETECTED! 🔥", fg="#ff5959")
-            else:
-                self.result_label.config(text="No fire detected.", fg="#6fff57")
-        except Exception as e:
-            messagebox.showerror("Prediction Error", str(e))
+        
+        # Update Status Label
+        if fire_detected:
+            self.result_label.config(text="🔥 FIRE DETECTED! 🔥", fg="#ff5959")
+        else:
+            self.result_label.config(text="No fire detected.", fg="#6fff57")
+            
+        # Schedule next frame
+        processing_time = (time.time() - start_time) * 1000
+        delay = int(max(1, (1000 / self.processor.fps) - processing_time))
+        self.root.after(delay, self.process_frame)
 
     def reset(self):
-        self.image_path = None
+        self.is_running = False
+        self.processor.release_video()
+        self.video_path = None
         self.tk_img = ImageTk.PhotoImage(self.placeholder_img)
         self.img_label.config(image=self.tk_img)
         self.result_label.config(text="")

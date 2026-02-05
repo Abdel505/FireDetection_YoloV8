@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints
+.vscode/
+venv/
+env/
+fire_2.mp4
+fire_3.mp4
+fire.mp4
+images/42.jpg
+76.jpg
+

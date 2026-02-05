@@ -23,7 +23,18 @@ class FireDetectionApp:
         self.root.title("Fire Detection with YOLOv8")
         self.root.geometry("850x430")
         self.root.configure(bg=BG_COLOR)
-        self.model = YOLO("fire_8l.pt")
+        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        model_name = "fire_8l.pt"
+        model_path = os.path.join(base_dir, "models", model_name)
+
+        # Check if model exists in src/models, if not check root/models
+        if not os.path.exists(model_path):
+            possible_path = os.path.join(base_dir, "..", "models", model_name)
+            if os.path.exists(possible_path):
+                model_path = possible_path
+
+        self.model = YOLO(model_path)
         self.image_path = None
 
         # Title label
