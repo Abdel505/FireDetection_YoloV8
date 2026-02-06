@@ -27,7 +27,7 @@ class FireDetectionApp:
         
         # Initialize the logic processor
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        model_name = "fire_8n.pt"
+        model_name = "fire_8n30.pt"
         model_path = os.path.join(base_dir, "models", model_name)
 
         # Check if model exists in src/models, if not check root/models
@@ -117,8 +117,8 @@ class FireDetectionApp:
     def load_video(self):
         file_path = filedialog.askopenfilename(filetypes=[("Video Files", "*.mp4;*.avi;*.mov;*.mkv")])
         if file_path:
-            self.video_path = file_path
             if self.processor.load_video(file_path):
+                self.video_path = file_path
                 # Get a preview frame
                 frame_rgb, success = self.processor.get_first_frame()
                 if success:
@@ -129,11 +129,15 @@ class FireDetectionApp:
                 self.result_label.config(text="Video Loaded")
                 
                 if not self.is_running:
-                    self.predict()
+                    self.start_detection()
             else:
+                self.video_path = None
                 messagebox.showerror("Error", "Failed to load video.")
 
-    def predict(self):
+    def start_detection(self):
+        if self.is_running:
+            return
+
         if not self.video_path:
             messagebox.showwarning("No Video", "Please load a video first.")
             return
