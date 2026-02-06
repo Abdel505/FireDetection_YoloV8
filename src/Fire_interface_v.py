@@ -5,6 +5,8 @@ import os
 import sys
 import time
 from fire_detection_logic import FireVideoProcessor
+import serial
+import serial.tools.list_ports
 
 # Modern color scheme
 BG_COLOR = "#232946"
@@ -38,6 +40,10 @@ class FireDetectionApp:
         self.video_path = None
         self.is_running = False
         self.after_id = None
+        self.last_fire_state = False
+
+        # --- ESP32 Serial Connection ---
+        self.ser = self.detect_and_connect_esp32()
         
         # Title label
         title = tk.Label(self.root, text="🔥 Fire Detection with YOLOv8 🔥", font=("Segoe UI", 22, "bold"), bg=BG_COLOR, fg=FG_COLOR)
@@ -77,6 +83,22 @@ class FireDetectionApp:
         self.script_path = os.path.abspath(__file__)
         self.last_mtime = os.stat(self.script_path).st_mtime
         self.check_reload()
+
+    def detect_and_connect_esp32(self):
+        """Automatically detects and connects to an ESP32 device."""
+        try:
+            ports = serial.tools.list_ports.comports()
+            # Common identifiers for ESP32 USB drivers
+            target_descriptors = ["CP210", "CH340", "USB Serial", "USB-to-Serial", "USB UART"]
+            for port in ports:
+                if any(desc in port.description for desc in target_descriptors):
+                    print(f"Connecting to ESP32 on {port.device} ({port.description})...")
+                    return serial.Serial(port.device, 115200, timeout=1)
+            print("Warning: No ESP32-like device found.")
+            return None
+        except Exception as e:
+            print(f"Warning: Could not connect to ESP32. {e}")
+            return None
 
     def check_reload(self):
         try:
@@ -143,8 +165,15 @@ class FireDetectionApp:
         
         # Update Status Label
         if fire_detected:
+            # Send signal only if state changed to avoid flooding serial
+            if not self.last_fire_state and self.ser:
+                self.ser.write(b"FIRE\n")
+            self.last_fire_state = True
             self.result_label.config(text="🔥 FIRE DETECTED! 🔥", fg="#ff5959")
         else:
+            if self.last_fire_state and self.ser:
+                self.ser.write(b"SAFE\n")
+            self.last_fire_state = False
             self.result_label.config(text="No fire detected.", fg="#6fff57")
             
         # Schedule next frame
@@ -159,6 +188,10 @@ class FireDetectionApp:
         self.tk_img = ImageTk.PhotoImage(self.placeholder_img)
         self.img_label.config(image=self.tk_img)
         self.result_label.config(text="")
+        # Turn off alarm on reset
+        if self.ser:
+            self.ser.write(b"RESET\n")
+        self.last_fire_state = False
 
 
 def main():
