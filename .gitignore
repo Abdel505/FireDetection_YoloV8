@@ -4,11 +4,10 @@ __pycache__/
 .vscode/
 venv/
 env/
-
 fire_3.mp4
 fire.mp4
 images/42.jpg
 76.jpg
-src/Fire_interface.py
-src/RealTimeFire.py
-test_logic.py
+Fire_interface.py
+RealTimeFire.py
+
