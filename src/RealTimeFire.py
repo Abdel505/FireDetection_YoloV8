@@ -37,6 +37,9 @@ class RealTimeFireApp:
             possible_path = os.path.join(base_dir, "..", "models", model_name)
             if os.path.exists(possible_path):
                 model_path = possible_path
+                
+        # Handle window closing
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         
         # Fallback to absolute path or other known models if needed
         if not os.path.exists(model_path):
@@ -210,9 +213,23 @@ class RealTimeFireApp:
         
         # Turn off alarm on reset
         if self.ser:
+            self.ser.write(b"SAFE\n")
             self.ser.write(b"RESET\n")
         self.last_fire_state = False
         self.fire_start_time = None
+
+    def on_close(self):
+        """Cleanup before closing the window."""
+        self.is_running = False
+        if self.processor:
+            self.processor.release_video()
+        if self.ser and self.ser.is_open:
+            try:
+                self.ser.write(b"RESET\n")
+                self.ser.close()
+            except:
+                pass
+        self.root.destroy()
 
 
 def main():

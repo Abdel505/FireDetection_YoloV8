@@ -25,6 +25,9 @@ class FireDetectionApp:
         self.root.geometry("850x430")
         self.root.configure(bg=BG_COLOR)
         
+        # Handle window closing
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        
         # Initialize the logic processor
         base_dir = os.path.dirname(os.path.abspath(__file__))
         model_name = "fire_8n30.pt"
@@ -79,10 +82,11 @@ class FireDetectionApp:
                                     bg=BG_COLOR, fg=FG_COLOR, troughcolor=SLIDER_COLOR, highlightbackground=FG_COLOR, font=BTN_FONT, bd=0)
         self.conf_slider.pack(side=tk.LEFT)
 
-        # Auto-reload setup
+        # Auto-reload setup (only if running as main)
         self.script_path = os.path.abspath(__file__)
         self.last_mtime = os.stat(self.script_path).st_mtime
-        self.check_reload()
+        if __name__ == "__main__":
+            self.check_reload()
 
     def detect_and_connect_esp32(self):
         """Automatically detects and connects to an ESP32 device."""
@@ -194,8 +198,22 @@ class FireDetectionApp:
         self.result_label.config(text="")
         # Turn off alarm on reset
         if self.ser:
+            self.ser.write(b"SAFE\n")
             self.ser.write(b"RESET\n")
         self.last_fire_state = False
+
+    def on_close(self):
+        """Cleanup before closing the window."""
+        self.is_running = False
+        if self.processor:
+            self.processor.release_video()
+        if self.ser and self.ser.is_open:
+            try:
+                self.ser.write(b"RESET\n")
+                self.ser.close()
+            except:
+                pass
+        self.root.destroy()
 
 
 def main():
