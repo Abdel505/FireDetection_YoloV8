@@ -19,8 +19,9 @@ LABEL_FONT = ("Segoe UI", 16, "bold")
 BTN_FONT = ("Segoe UI", 12, "bold")
 
 class FireDetectionApp:
-    def __init__(self, root):
+    def __init__(self, root, on_back=None):
         self.root = root
+        self.on_back = on_back
         self.root.title("Fire Detection with YOLOv8")
         self.root.geometry("850x430")
         self.root.configure(bg=BG_COLOR)
@@ -72,6 +73,10 @@ class FireDetectionApp:
         self.load_btn.grid(row=0, column=0, padx=10)
         self.reset_btn = tk.Button(btn_frame, text="Reset", command=self.reset, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
         self.reset_btn.grid(row=0, column=1, padx=10)
+        
+        if self.on_back:
+            self.back_btn = tk.Button(btn_frame, text="Back to Main", command=self.on_close, width=15, font=BTN_FONT, bg=BTN_COLOR, fg=FG_COLOR, activebackground=BTN_ACTIVE, activeforeground=BTN_TEXT, bd=0, relief="ridge", highlightthickness=2, highlightbackground=FG_COLOR)
+            self.back_btn.grid(row=0, column=2, padx=10)
 
         # Confidence threshold slider
         slider_frame = tk.Frame(self.root, bg=BG_COLOR)
@@ -214,6 +219,8 @@ class FireDetectionApp:
             except:
                 pass
         self.root.destroy()
+        if self.on_back:
+            self.on_back()
 
 
 def main():

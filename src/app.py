@@ -93,10 +93,17 @@ class MainLauncherApp:
         
         self.status_label.config(text="")
         
+        
+        # Hide main window
+        self.root.withdraw()
+        
         # Create Toplevel window
         window = tk.Toplevel(self.root)
-        app = Fire_interface_v.FireDetectionApp(window)
-        # Note: We do NOT call window.mainloop() here, mainloop is already running in root
+        
+        def on_back():
+            self.root.deiconify()
+            
+        app = Fire_interface_v.FireDetectionApp(window, on_back=on_back)
 
     def launch_camera_interface(self):
         global RealTimeFire
@@ -112,9 +119,16 @@ class MainLauncherApp:
 
         self.status_label.config(text="")
         
+        # Hide main window
+        self.root.withdraw()
+
         # Create Toplevel window
         window = tk.Toplevel(self.root)
-        app = RealTimeFire.RealTimeFireApp(window)
+        
+        def on_back():
+            self.root.deiconify()
+
+        app = RealTimeFire.RealTimeFireApp(window, on_back=on_back)
 
 if __name__ == "__main__":
     root = tk.Tk()
