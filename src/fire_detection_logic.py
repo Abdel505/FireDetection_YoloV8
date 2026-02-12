@@ -8,7 +8,7 @@ class FireVideoProcessor:
     Handles video processing and fire detection logic using YOLOv8.
     Separated from the GUI for better testability and modularity.
     """
-    def __init__(self, model_path="models/fire_8n.pt"):
+    def __init__(self, model_path="models/fire_8n30.pt"):
         self.model = YOLO(model_path)
         self.cap = None
         self.fps = 30
